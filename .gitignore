@@ -9,13 +9,6 @@ env/
 venv/
 ENV/
 
-# Model files (these can be large)
-saved_models/
-*.pkl
-*.h5
-*.pb
-*.onnx
-*.safetensors
 
 # OS generated files
 .DS_Store

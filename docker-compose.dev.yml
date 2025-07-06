@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  sianglao-ml-dev:
+    build:
+      context: .
+      target: production
+    container_name: sianglao-ml-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount source code for development (live reload)
+      - .:/app
+      # Mount test audio directory
+      - ./test_audio:/app/test_audio:ro
+      # Note: Models are included in the repository via Git LFS
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 300s
+    deploy:
+      resources:
+        limits:
+          memory: 8G  # Increased for 3 models (~1.2GB each + overhead)
+        reservations:
+          memory: 4G
+    networks:
+      - sianglao-dev-network
+
+networks:
+  sianglao-dev-network:
+    driver: bridge

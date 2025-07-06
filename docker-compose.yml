@@ -2,21 +2,55 @@ version: '3.8'
 
 services:
   sianglao-ml:
-    build: .
+    build:
+      context: .
+      target: production
+    container_name: sianglao-ml-service
     ports:
       - "8000:8000"
     environment:
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - PYTHONUNBUFFERED=1
     volumes:
-      # Mount source code for development (optional - uncomment for live reload)
-      # - .:/app
-      # Mount test audio directory if you have test files
-      - ./test_audio:/app/test_audio
+      # Mount test audio directory for testing
+      - ./test_audio:/app/test_audio:ro
+      # Note: Models are included in the image via Git LFS, no need to mount
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 300s
+    deploy:
+      resources:
+        limits:
+          memory: 8G  # Increased for 3 models (~1.2GB each + overhead)
+        reservations:
+          memory: 4G
+    networks:
+      - sianglao-network
+
+  # Optional: Add a reverse proxy for production
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: sianglao-nginx
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - sianglao-ml
+  #   restart: unless-stopped
+  #   networks:
+  #     - sianglao-network
+
+networks:
+  sianglao-network:
+    driver: bridge
+
+# Optional: Define volumes for persistent data
+# volumes:
+#   model_data:
+#     driver: local

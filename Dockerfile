@@ -1,42 +1,53 @@
-# Dockerfile for Sianglao ML Service - Development Mode
-FROM python:3.12-slim
+# Optimized Dockerfile for Sianglao ML Service
+# Models are included via Git LFS, no need to download
+FROM python:3.12-slim as production
+
+# Install system dependencies for ML inference
+RUN apt-get update && apt-get install -y \
+    libsndfile1 \
+    ffmpeg \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash sianglao
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for audio processing
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libsndfile1 \
-    ffmpeg \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy application code and models (models are in Git LFS)
+COPY --chown=sianglao:sianglao . .
 
-# Create directory for models if it doesn't exist
-RUN mkdir -p saved_models
+# Verify models are present
+RUN ls -la saved_models/ && \
+    ls -la saved_models/*/model.safetensors || echo "Models will be loaded from Git LFS"
 
-# Download models (this will take some time on first build)
-RUN python download_models.py
+# Make sure the sianglao user owns the app directory
+RUN chown -R sianglao:sianglao /app
 
-# Expose the port the app runs on
+# Switch to non-root user
+USER sianglao
+
+# Add local bin to PATH
+ENV PATH=/home/sianglao/.local/bin:$PATH
+
+# Set production environment variables
+ENV FLASK_ENV=production
+ENV FLASK_DEBUG=0
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose the port
 EXPOSE 8000
 
-# Set environment variables for development
-ENV FLASK_ENV=development
-ENV FLASK_DEBUG=1
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check (longer startup time due to large models)
+HEALTHCHECK --interval=30s --timeout=15s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application

@@ -13,7 +13,7 @@ class Config:
     # Flask Configuration
     # ================================
     FLASK_HOST = "0.0.0.0"
-    FLASK_PORT = 8000
+    FLASK_PORT = int(os.getenv("PORT", 8000))
     FLASK_DEBUG = False
     
     # ================================
@@ -174,7 +174,23 @@ def get_config():
     """Get configuration based on environment"""
     env = os.getenv('FLASK_ENV', 'development').lower()
     
-    if env == 'production':
+    # Detect cloud platform environments
+    cloud_platforms = [
+        'RAILWAY_ENVIRONMENT',    # Railway
+        'FLY_APP_NAME',          # Fly.io
+        'RENDER',                # Render
+        'HEROKU_APP_NAME',       # Heroku
+        'VERCEL',                # Vercel
+        'NETLIFY',               # Netlify
+        'GOOGLE_CLOUD_PROJECT',  # Google Cloud
+        'AWS_LAMBDA_FUNCTION_NAME', # AWS Lambda
+        'AZURE_FUNCTIONS_ENVIRONMENT' # Azure Functions
+    ]
+    
+    # Check if running in production (cloud platform or explicit env)
+    is_production = env == 'production' or any(os.getenv(platform) for platform in cloud_platforms)
+    
+    if is_production:
         return ProductionConfig()
     elif env == 'testing':
         return TestingConfig()
@@ -185,6 +201,27 @@ def get_config():
 # ================================
 # Utility Functions
 # ================================
+def detect_platform():
+    """Detect which cloud platform we're running on"""
+    platform_mapping = {
+        'RAILWAY_ENVIRONMENT': 'Railway',
+        'FLY_APP_NAME': 'Fly.io',
+        'RENDER': 'Render',
+        'HEROKU_APP_NAME': 'Heroku',
+        'VERCEL': 'Vercel',
+        'NETLIFY': 'Netlify',
+        'GOOGLE_CLOUD_PROJECT': 'Google Cloud',
+        'AWS_LAMBDA_FUNCTION_NAME': 'AWS Lambda',
+        'AZURE_FUNCTIONS_ENVIRONMENT': 'Azure Functions'
+    }
+    
+    for env_var, platform_name in platform_mapping.items():
+        if os.getenv(env_var):
+            return platform_name
+    
+    return 'Local' if os.getenv('FLASK_ENV', 'development').lower() == 'development' else 'Unknown'
+
+
 def validate_model_paths():
     """Validate that all model paths exist"""
     config = get_config()

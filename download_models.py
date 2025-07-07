@@ -72,10 +72,13 @@ class ModelDownloader:
         print(f"💾 To: {local_path}")
         
         try:
-            # Check if already exists
+            # Check if already exists and is valid
             if self.check_model_exists(local_path):
                 print(f"✅ Model already exists in {local_path}")
                 return True
+            
+            # If LFS pointers exist, remove them first
+            self.clean_lfs_pointers(local_path)
             
             # Download model
             print("⬇️  Downloading model...")
@@ -105,20 +108,53 @@ class ModelDownloader:
             return False
     
     def check_model_exists(self, local_path: str) -> bool:
-        """Check if model files already exist"""
+        """Check if model files already exist and are not LFS pointers"""
         path = Path(local_path)
         required_files = ["config.json", "vocab.json"]
         
         # Check for model weights (either .bin or .safetensors)
-        has_weights = (
-            (path / "pytorch_model.bin").exists() or 
-            (path / "model.safetensors").exists()
-        )
+        model_file = None
+        if (path / "model.safetensors").exists():
+            model_file = path / "model.safetensors"
+        elif (path / "pytorch_model.bin").exists():
+            model_file = path / "pytorch_model.bin"
+        
+        if not model_file:
+            return False
+        
+        # Check if model file is actually downloaded (not an LFS pointer)
+        # LFS pointers are typically < 200 bytes, real models are > 100MB
+        model_size = model_file.stat().st_size
+        if model_size < 1000:  # Less than 1KB = likely LFS pointer
+            print(f"⚠️  Model file exists but is only {model_size} bytes (likely LFS pointer)")
+            return False
         
         # Check for required config files
         has_configs = all((path / file).exists() for file in required_files)
         
-        return has_weights and has_configs
+        return has_configs
+    
+    def clean_lfs_pointers(self, local_path: str):
+        """Remove LFS pointer files to allow fresh download"""
+        path = Path(local_path)
+        
+        # Files that might be LFS pointers
+        potential_lfs_files = [
+            "model.safetensors",
+            "pytorch_model.bin",
+            "config.json",
+            "vocab.json",
+            "tokenizer.json",
+            "preprocessor_config.json"
+        ]
+        
+        for file_name in potential_lfs_files:
+            file_path = path / file_name
+            if file_path.exists():
+                # Check if it's likely an LFS pointer (small file)
+                if file_path.stat().st_size < 1000:
+                    print(f"🧹 Removing LFS pointer: {file_path}")
+                    file_path.unlink()
     
     def verify_model(self, local_path: str, model_class) -> bool:
         """Verify downloaded model can be loaded"""

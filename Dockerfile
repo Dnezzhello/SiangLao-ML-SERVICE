@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
     build-essential \
+    git \
+    git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -24,12 +26,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code and models (models are in Git LFS)
 COPY --chown=sianglao:sianglao . .
 
-# Verify models are present
+# Verify models are present and check file sizes
 RUN ls -la saved_models/ && \
-    ls -la saved_models/*/model.safetensors || echo "Models will be loaded from Git LFS"
+    ls -lh saved_models/*/model.safetensors && \
+    echo "Model files loaded successfully"
 
-# Make sure the sianglao user owns the app directory
-RUN chown -R sianglao:sianglao /app
+# Make startup script executable and set ownership
+RUN chmod +x railway-start.sh && \
+    chown -R sianglao:sianglao /app
 
 # Switch to non-root user
 USER sianglao
@@ -51,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
-CMD ["python", "app.py"]
+CMD ["./railway-start.sh"]

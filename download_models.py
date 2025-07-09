@@ -8,7 +8,6 @@ Usage:
 """
 
 import os
-import sys
 from pathlib import Path
 from transformers import (
     Wav2Vec2ForCTC, 
@@ -16,16 +15,6 @@ from transformers import (
     Wav2Vec2Processor
 )
 import torch
-
-# Force unbuffered output for Docker builds
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
-sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', 0)
-
-# Set transformers logging to show download progress
-import logging
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("transformers").setLevel(logging.INFO)
-logging.getLogger("urllib3").setLevel(logging.INFO)
 
 class ModelDownloader:
     """Download and organize Lao ASR models from HuggingFace"""
@@ -93,21 +82,17 @@ class ModelDownloader:
             
             # Download model
             print("⬇️  Downloading model...")
-            sys.stdout.flush()
             model = model_class.from_pretrained(repo)
             
             # Download processor  
             print("⬇️  Downloading processor...")
-            sys.stdout.flush()
             processor = Wav2Vec2Processor.from_pretrained(repo)
             
             # Save locally
             print("💾 Saving model...")
-            sys.stdout.flush()
             model.save_pretrained(local_path)
             
             print("💾 Saving processor...")
-            sys.stdout.flush()
             processor.save_pretrained(local_path)
             
             # Verify download

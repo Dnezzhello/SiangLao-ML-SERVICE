@@ -7,8 +7,9 @@ Production-ready WSGI server configuration
 import multiprocessing
 import os
 
-# Server socket
-bind = "0.0.0.0:8000"
+# Server socket - Cloud Run requires using PORT environment variable
+port = os.environ.get("PORT", "8000")
+bind = f"0.0.0.0:{port}"
 backlog = 2048
 
 # Worker processes

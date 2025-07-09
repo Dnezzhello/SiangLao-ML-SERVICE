@@ -43,21 +43,36 @@ class ModelManager:
     
     def _get_device(self) -> str:
         """Determine the best device for inference"""
-        device_config = config.PERFORMANCE_CONFIG["device"]
+        # Check for runtime environment override (set by gunicorn worker)
+        runtime_device = os.getenv("DEVICE")
+        device_config = runtime_device if runtime_device else config.PERFORMANCE_CONFIG["device"]
         
         if device_config == "auto":
             if torch.cuda.is_available():
                 device = "cuda"
                 print(f"🔥 CUDA detected: {torch.cuda.get_device_name()}")
             elif torch.backends.mps.is_available():
-                device = "mps"
-                print("🍎 Apple Silicon GPU (MPS) detected and available")
-                print(f"💾 MPS allocated memory: {torch.mps.driver_allocated_memory() / 1024**3:.1f}GB")
+                try:
+                    # Test MPS functionality
+                    _ = torch.zeros(1, device="mps")
+                    device = "mps"
+                    print("🍎 Apple Silicon GPU (MPS) detected and available")
+                    print(f"💾 MPS allocated memory: {torch.mps.driver_allocated_memory() / 1024**3:.1f}GB")
+                except Exception as e:
+                    print(f"⚠️ MPS available but not functional: {e}")
+                    device = "cpu"
+                    print("💻 Falling back to CPU for inference")
             else:
                 device = "cpu"
                 print("💻 Using CPU for inference")
         else:
             device = device_config
+            if device == "cpu":
+                print("💻 Using CPU for inference (forced)")
+            elif device == "mps":
+                print("🍎 Using Apple Silicon GPU (MPS) (forced)")
+            elif device == "cuda":
+                print("🔥 Using CUDA GPU (forced)")
             
         return device
     

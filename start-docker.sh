@@ -1,20 +1,18 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting SiangLao ML Service..."
+echo "🐳 Starting SiangLao ML Service in Docker (PRODUCTION mode)..."
 
-# Verify models are available (they should be downloaded during build)
+# Check if model files exist
 if [ -f "saved_models/xls-r/model.safetensors" ] && [ -f "saved_models/xlsr-53/model.safetensors" ] && [ -f "saved_models/hubert/model.safetensors" ]; then
     echo "✅ All models are ready"
     echo "📊 Model sizes:"
     ls -lh saved_models/*/model.safetensors | awk '{print "  " $9 ": " $5}'
 else
-    echo "❌ Models not found - this shouldn't happen in production"
-    echo "💡 Running emergency model download..."
-    mkdir -p saved_models/xls-r saved_models/xlsr-53 saved_models/hubert
-    python download_models.py
+    echo "❌ Models not found - this should not happen in Docker build"
+    exit 1
 fi
 
 # Start the application with gunicorn (production WSGI server)
 echo "🚀 Starting production server with gunicorn..."
-gunicorn --config gunicorn.conf.py wsgi:application
+exec gunicorn --config gunicorn.conf.py wsgi:application

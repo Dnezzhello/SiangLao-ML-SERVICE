@@ -95,7 +95,7 @@ class Config:
     # Performance Configuration
     # ================================
     PERFORMANCE_CONFIG = {
-        "device": "auto",              # auto, cpu, cuda, mps
+        "device": os.getenv("DEVICE", "auto"),  # auto, cpu, cuda, mps
         "batch_processing": False,     # Future: support batch inference
         "model_caching": True,         # Keep models in memory
         "gradient_checkpointing": False, # Memory optimization (not needed for inference)

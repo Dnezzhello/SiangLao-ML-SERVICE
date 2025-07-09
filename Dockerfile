@@ -1,5 +1,5 @@
 # Optimized Dockerfile for Sianglao ML Service
-# Models are included via Git LFS, no need to download
+# Models are downloaded from HuggingFace during build for robust deployment
 FROM python:3.12-slim as production
 
 # Install system dependencies for ML inference
@@ -8,8 +8,6 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
     build-essential \
-    git \
-    git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -23,16 +21,24 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and models (models are in Git LFS)
+# Copy application code (without models directory)
 COPY --chown=sianglao:sianglao . .
 
-# Verify models are present and check file sizes
+# Create models directory structure
+RUN mkdir -p saved_models/xls-r saved_models/xlsr-53 saved_models/hubert
+
+# Download models from HuggingFace during build
+RUN echo "🔄 Starting model download..." && \
+    python -u download_models.py && \
+    echo "✅ Model download completed!"
+
+# Verify models are properly downloaded and check file sizes
 RUN ls -la saved_models/ && \
     ls -lh saved_models/*/model.safetensors && \
-    echo "Model files loaded successfully"
+    echo "Model files downloaded successfully from HuggingFace"
 
-# Make startup script executable and set ownership
-RUN chmod +x railway-start.sh && \
+# Make startup scripts executable and set ownership
+RUN chmod +x railway-start.sh start-dev.sh start-prod.sh start-docker.sh && \
     chown -R sianglao:sianglao /app
 
 # Switch to non-root user
@@ -50,9 +56,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Expose the port
 EXPOSE 8000
 
-# Health check (longer startup time due to large models)
-HEALTHCHECK --interval=30s --timeout=15s --start-period=300s --retries=5 \
+# Health check (faster startup since models are pre-downloaded)
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application
-CMD ["./railway-start.sh"]
+# Run the application (using production gunicorn server)
+CMD ["./start-docker.sh"]

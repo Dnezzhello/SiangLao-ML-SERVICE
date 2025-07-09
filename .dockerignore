@@ -104,3 +104,6 @@ secrets/
 *.mov
 # Keep only essential test audio
 !test_audio/C_SPK_01_1805.wav
+
+# Exclude saved_models directory - models will be downloaded during build
+saved_models/
